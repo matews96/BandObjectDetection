@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 import time
-import serial
+#import serial
 
 
 
@@ -18,10 +18,10 @@ import serial
 
 
 filter = np.ones((3,3))
-cammera = cv2.VideoCapture('jbnjhbg.mp4')
+cammera = cv2.VideoCapture('out2.mp4')
 size = (700, 935)
-a = np.zeros((size))
-ser = serial.Serial('/dev/cu.usbmodem1411', baudrate=115200)
+center_mask = np.zeros((size))
+#ser = serial.Serial('/dev/cu.usbmodem1411', baudrate=115200)
 range_center = np.arange(np.int0(size[0]/2-50), np.int0(size[0]/2+50), 1, np.int0)
 was_processed = False
 
@@ -59,6 +59,8 @@ def calibrate_band(calibrationDuration=10):
     return maximum
 
 
+
+
 def show_webcam():
 
     threshold = calibrate_band(1) + 5
@@ -68,7 +70,7 @@ def show_webcam():
     ser_flag = b'0'
 
     while True:
-        ser.write(ser_flag)
+        #ser.write(ser_flag)
         originalFrame, frame = get_frame_processed()
         cv2.imshow('contours', originalFrame)
 
@@ -88,17 +90,28 @@ def show_webcam():
             #print(point)
             box = cv2.boxPoints(rect)
             box = np.int0(box)
-            cv2.drawContours(originalFrame, [box], 0, (255, 0, 255), 2)
-            cv2.circle(a, (point[0], point[1]), 70, 255, thickness= -1, lineType=8, shift=0)
-            Y, _ = np.nonzero(a)
+            cv2.drawContours(originalFrame, [box], 0, (255, 0, 255), 1)
+            cv2.circle(center_mask, (point[0], point[1]), 70, 255, thickness= -1, lineType=8, shift=0)
+            Y, _ = np.nonzero(center_mask)
             intersection = np.intersect1d(Y, range_center)
             print (intersection.size)
-            cv2.imshow("ap", a)
+            cv2.imshow("ap", center_mask)
 
             if intersection.size == 100 and not was_processed:
                 was_processed = True
+                cv2.drawContours(rect_mask, [box], 0, (255,255,255), -1)
+                print(np.shape(originalFrame))
+                print(np.shape(rect_mask))
+                object = cv2.bitwise_and(originalFrame, rect_mask)
+                pos = np.nonzero(object)
+                print(pos[0][1])
+                print(pos[1][1])
+                print(pos[2][1])
+                cv2.imshow("jfhdfhdjf", object)
+                cv2.imshow("mask", rect_mask)
                 cv2.imshow('a', originalFrame)
                 print("Bitch")
+
 
             #cv2.drawContours(originalFrame, contours[0], -1, (0, 255, 0), 3)
             cv2.circle(originalFrame, (point[0], point[1]), 50, (255,255,0), thickness=-1, lineType=8, shift=0)
@@ -106,8 +119,9 @@ def show_webcam():
             i= i+1
             initial_time = time.clock()
         else:
-            a = np.zeros(size)
-            cv2.imshow("ap", a)
+            center_mask = np.zeros(size)
+            rect_mask = np.zeros((700,935,3), dtype="uint8")
+            cv2.imshow("ap", center_mask)
             ser_flag = b'0'
             was_processed = False
             if (time.clock() - initial_time) > idle_time:
