@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 import time
-#import serial
+import serial
 
 
 
@@ -18,10 +18,10 @@ import time
 
 
 filter = np.ones((3,3))
-cammera = cv2.VideoCapture('out.mp4')
+cammera = cv2.VideoCapture('jbnjhbg.mp4')
 size = (700, 935)
 a = np.zeros((size))
-#ser = serial.Serial('/dev/cu.usbmodem1411', baudrate=9600)
+ser = serial.Serial('/dev/cu.usbmodem1411', baudrate=115200)
 range_center = np.arange(np.int0(size[0]/2-50), np.int0(size[0]/2+50), 1, np.int0)
 was_processed = False
 
@@ -36,8 +36,8 @@ def get_frame_processed(substractor = cv2.createBackgroundSubtractorMOG2(),
     _, rmvBkgFrame = cv2.threshold(rmvBkgFrame, 127, 255, cv2.THRESH_BINARY)
     blurredFrame = cv2.medianBlur(rmvBkgFrame, 5)
     blurredFrame2 = cv2.erode(blurredFrame, filter, iterations = 50)
-    blurredFrame3 = cv2.dilate(blurredFrame2, filter, iterations = 70)
-    #cv2.imshow('Blurred Frame2', blurredFrame3)
+    blurredFrame3 = cv2.dilate(blurredFrame2, filter, iterations = 80)
+    cv2.imshow('Blurred Frame2', blurredFrame3)
     cv2.rectangle(originalFrame, (0, np.int0(size[0]/2-50)), (size[1]-1, np.int0(size[0]/2+50)), (0,255,255), thickness=2, lineType=8, shift=0)
 
 
@@ -61,13 +61,14 @@ def calibrate_band(calibrationDuration=10):
 
 def show_webcam():
 
-    threshold = calibrate_band(5) + 5
+    threshold = calibrate_band(1) + 5
     i = 0
     initial_time = time.clock()
     idle_time = 10
+    ser_flag = b'0'
 
     while True:
-
+        ser.write(ser_flag)
         originalFrame, frame = get_frame_processed()
         cv2.imshow('contours', originalFrame)
 
@@ -77,22 +78,27 @@ def show_webcam():
         average = np.average(frame)
 
         if average > threshold:
-            a = np.zeros(size)
-            #ser.write(b'1')
             rect = cv2.minAreaRect(contours[0])
             point, _, _ = rect
             point = np.int0(point)
+            if not was_processed and point[1]>200:
+                ser_flag = b'1'
+            else:
+                ser_flag = b'0'
             #print(point)
             box = cv2.boxPoints(rect)
             box = np.int0(box)
             cv2.drawContours(originalFrame, [box], 0, (255, 0, 255), 2)
-            cv2.circle(a, (point[0], point[1]), 50, 255, thickness= -1, lineType=8, shift=0)
+            cv2.circle(a, (point[0], point[1]), 70, 255, thickness= -1, lineType=8, shift=0)
             Y, _ = np.nonzero(a)
             intersection = np.intersect1d(Y, range_center)
+            print (intersection.size)
+            cv2.imshow("ap", a)
 
-            if intersection.size > 0 and not was_processed:
+            if intersection.size == 100 and not was_processed:
                 was_processed = True
                 cv2.imshow('a', originalFrame)
+                print("Bitch")
 
             #cv2.drawContours(originalFrame, contours[0], -1, (0, 255, 0), 3)
             cv2.circle(originalFrame, (point[0], point[1]), 50, (255,255,0), thickness=-1, lineType=8, shift=0)
@@ -101,8 +107,9 @@ def show_webcam():
             initial_time = time.clock()
         else:
             a = np.zeros(size)
+            cv2.imshow("ap", a)
+            ser_flag = b'0'
             was_processed = False
-            #ser.write(b'0')
             if (time.clock() - initial_time) > idle_time:
                 print("No object found for more than 3 seconds")
 
